@@ -16,6 +16,7 @@ app.secret_key = 'your-secret-key'
 CORS(app)#, supports_credentials=True)#, origins=["https://localhost:3000"])
 
 user_processing_status = {}
+status_lock = threading.Lock()
 
 
 def get_basic_auth_header(client_id, client_secret):
@@ -29,8 +30,11 @@ def get_basic_auth_header(client_id, client_secret):
 def check_status():
     auth_header = request.headers.get('Authorization')
     access_token = auth_header.split(' ')[1]    
-    # Check the processing status for the user's access token
-    status = user_processing_status.get(access_token, 'not_started')
+
+    # Safely access user_processing_status
+    with status_lock:
+        status = user_processing_status.get(access_token, 'not_started')
+    
     print(access_token, status)
     return jsonify({"status": status}), 200
 
@@ -40,14 +44,32 @@ def process_data_api():
     access_token = data.get('access_token')
     user_text = data.get('user_text')
 
-    user_processing_status[access_token] = 'processing'
-    print(user_processing_status[access_token])
-    # Run the process_data function
-    result = process_data(access_token, user_text)
-    user_processing_status[access_token] = 'completed'
+    with status_lock:
+        user_processing_status[access_token] = 'processing'
+
+    processing_thread = threading.Thread(target=background_process_data, args=(access_token, user_text))
+    processing_thread.start()
     
     # Return a response to Next.js
-    return jsonify(result), 200
+    return jsonify({"status": "processing_started"}), 200
+
+def background_process_data(access_token, user_text):
+    try:
+        print("Background Task: Processing Started")
+        # Perform heavy processing here
+        result = process_data(access_token, user_text)
+        
+        # Update status to "completed" when done
+        with status_lock:
+            user_processing_status[access_token] = 'completed'
+        
+        print("Background Task: Processing Completed")
+    
+    except Exception as e:
+        print(f"Error during processing: {e}")
+        # In case of error, set status to "error"
+        with status_lock:
+            user_processing_status[access_token] = 'error'
 
 def process_data(access_token, user_text):
     print("STARTED PROCESS")
