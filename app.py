@@ -38,6 +38,18 @@ def check_status():
     print(access_token, status)
     return jsonify({"status": status}), 200
 
+@app.route('/api/reset_status', methods=['POST'])
+def reset_status():
+    data = request.json
+    access_token = data.get('access_token')
+
+    if access_token:
+        with status_lock:
+            user_processing_status[access_token] = 'not_started'
+        return jsonify({"status": "reset_successful"}), 200
+    else:
+        return jsonify({"error": "access_token missing"}), 400
+
 @app.route('/api/process_data', methods=['POST'])
 def process_data_api():
     data = request.json
@@ -74,7 +86,7 @@ def background_process_data(access_token, user_text):
 def process_data(access_token, user_text):
     print("STARTED PROCESS")
     # After return from notion_callback, run search, find db ids and pass text
-    print(search_notion_pages(access_token))
+    
     search_res = search_notion_pages(access_token)['results']
     while not search_res:
         search_res = search_notion_pages(access_token)['results']
@@ -84,6 +96,7 @@ def process_data(access_token, user_text):
     tasks_db_id = find_database_ids_recursive(access_token, goalos_pid, "Tasks")
     hidden_tasks_db_id = find_database_ids_recursive(access_token, goalos_pid, "Objectives")
     sidequests_db_id = find_database_ids_recursive(access_token, goalos_pid, "Side Quests")
+    skills_db_id = find_database_ids_recursive(access_token, goalos_pid, "Skills")
     
     # Generate JSON data using the lifeos function based on the user input    
     data = lifeos(user_text)    
@@ -94,7 +107,7 @@ def process_data(access_token, user_text):
         phase["phase_img_url"] = phase_img_url['images'][0]['url']  # Store image URL in the JSON data
     
     # Push data to Notion using the access token, database IDs, and the JSON data
-    push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_id, hidden_tasks_db_id, data)
+    push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_id, hidden_tasks_db_id, skills_db_id, data)
     
     return {"status": "completed"}
 

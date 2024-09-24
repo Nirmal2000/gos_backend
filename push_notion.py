@@ -66,7 +66,48 @@ def add_phase(phase, image_url, phases_db_id, access_token):
     return create_notion_page(phases_db_id, properties, access_token, cover)
 
 
-def add_task(task, time, priority, skills, phase_relation, tasks_db_id, access_token):
+def add_skill_to_database(skill, skills_db_id, access_token):
+    url = "https://api.notion.com/v1/pages"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28"
+    }
+    data = {
+        "parent": {"database_id": skills_db_id},
+        "properties": {
+            "Name": {
+                "title": [
+                    {
+                        "text": {"content": skill}
+                    }
+                ]
+            }
+        }
+    }
+    
+    response = requests.post(url, json=data, headers=headers)
+    
+    if response.status_code != 200:
+        raise Exception(f"Failed to add skill to database: {response.text}")
+    return response.json().get('id')
+
+
+def add_task(task, time, priority, skills, phase_relation, tasks_db_id, access_token, skill_dict, skills_db_id):
+    skill_relations = []
+    
+    # Check if the skill is already in the dictionary, if not, add it
+    for skill in skills:
+        if skill in skill_dict:
+            skill_id = skill_dict[skill]
+        else:
+            # If the skill is not in the dictionary, add it to the database and get the ID
+            skill_id = add_skill_to_database(skill, skills_db_id, access_token)
+            skill_dict[skill] = skill_id  # Store the new skill in the dictionary
+        
+        # Append the skill ID to the relation
+        skill_relations.append({"id": skill_id})
+
     properties = {
         "Name": {
             "title": [
@@ -86,7 +127,7 @@ def add_task(task, time, priority, skills, phase_relation, tasks_db_id, access_t
             "select": {"name": priority}
         },
         "Skills": {
-            "multi_select": [{"name": skill} for skill in skills]
+            "relation": skill_relations  # Link to the skills in the skills database
         },
         "Phases": {
             "relation": [{"id": phase_relation}]
@@ -111,7 +152,21 @@ def add_hidden_task(hidden_task, main_task_relation, hidden_tasks_db_id, access_
     return create_notion_page(hidden_tasks_db_id, properties, access_token)
 
 
-def add_side_task(task, sidequests_db_id, access_token):
+def add_side_task(task, sidequests_db_id, access_token, skill_dict, skills_db_id):
+    skill_relations = []
+    
+    # Check if the skill is already in the dictionary, if not, add it
+    for skill in task['Skills']:
+        if skill in skill_dict:
+            skill_id = skill_dict[skill]
+        else:
+            # If the skill is not in the dictionary, add it to the database and get the ID
+            skill_id = add_skill_to_database(skill, skills_db_id, access_token)
+            skill_dict[skill] = skill_id  # Store the new skill in the dictionary
+        
+        # Append the skill ID to the relation
+        skill_relations.append({"id": skill_id})
+
     properties = {
         "Name": {
             "title": [
@@ -121,7 +176,7 @@ def add_side_task(task, sidequests_db_id, access_token):
             ]
         },
         "Skills": {
-            "multi_select": [{"name": skill} for skill in task['Skills']]
+            "relation": skill_relations  # Link to the skills in the skills database
         },
         "Time": {
             "rich_text": [
@@ -144,9 +199,9 @@ def add_side_task(task, sidequests_db_id, access_token):
     return create_notion_page(sidequests_db_id, properties, access_token)
 
 
-def push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_id, hidden_tasks_db_id, data):
+def push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_id, hidden_tasks_db_id, skills_db_id, data):
     
-
+    skill_dict = {}
     # 2. Add the phase
     for phase in data["Phases"]:
         phase_response = add_phase(
@@ -155,7 +210,7 @@ def push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_i
             phases_db_id=phases_db_id,
             access_token=access_token
         )
-        print(phase_response)
+        
         phase_id = phase_response[1]['id']  # The ID of the created phase
 
         # 3. Add the tasks
@@ -167,9 +222,11 @@ def push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_i
                 skills=task_data["Skills"],
                 phase_relation=phase_id,
                 tasks_db_id=tasks_db_id,
-                access_token=access_token
+                access_token=access_token,
+                skill_dict=skill_dict,
+                skills_db_id=skills_db_id
             )
-            print(task_response)
+            
             task_id = task_response[1]['id']  # The ID of the created task
             # 4. Add the hidden tasks
             for hidden_task in task_data["HiddenTasks"]:
@@ -181,7 +238,8 @@ def push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_i
                 )
 
     for sq in data['SideQuests']:
-        add_side_task(sq, sidequests_db_id, access_token)        
+        sq_resp = add_side_task(sq, sidequests_db_id, access_token, skill_dict, skills_db_id)        
+        print("_>",sq_resp)
 
 
 
@@ -276,4 +334,6 @@ if __name__ == "__main__":
     #                     data
     #                     )
     
-    print(add_phase("DAMN", 'https://fal.media/files/rabbit/ojZ6RyVbukPCKP5rRwXEV.png', '25c8ef29d7774465880c2eec622df454', 'secret_anhY2TGVmu0pF2LatFAmZEAOaLxktD9spnLvhiIAtZe'))
+    # print(add_phase("DAMN", 'https://fal.media/files/rabbit/ojZ6RyVbukPCKP5rRwXEV.png', '25c8ef29d7774465880c2eec622df454', 'secret_anhY2TGVmu0pF2LatFAmZEAOaLxktD9spnLvhiIAtZe'))
+
+    # add_skill_to_database("WOW", 'fff1cb9f300b815d87d6e2d9bbcc37c6', 'secret_anhY2TGVmu0pF2LatFAmZEAOaLxktD9spnLvhiIAtZe')
