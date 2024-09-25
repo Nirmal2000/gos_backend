@@ -1,8 +1,30 @@
 import requests
 
+heart_icons = [
+    "❤️",  # Red heart
+    "🧡",  # Orange heart
+    "💛",  # Yellow heart
+    "💚",  # Green heart
+    "💙",  # Blue heart
+    "💜",  # Purple heart
+    "🖤",  # Black heart
+    "🤍",  # White heart
+    "🤎",  # Brown heart
+    "💖",  # Sparkling pink heart
+    "💗",  # Growing pink heart
+    "💓",  # Beating pink heart
+    "💞",  # Revolving pink heart
+    "💕",  # Two pink hearts
+    "💘",  # Heart with arrow
+    "💝",  # Heart with ribbon
+    "💟",  # Decorative heart
+    "❣️",  # Heart exclamation
+    "💔",  # Broken heart
+    "❤️‍🔥"  # Heart on fire
+]
 
 # Function to create a page in a Notion database
-def create_notion_page(database_id, properties, access_token, cover=None):
+def create_notion_page(database_id, properties, access_token, cover=None, icon=None):
     HEADERS = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json",
@@ -16,6 +38,8 @@ def create_notion_page(database_id, properties, access_token, cover=None):
     }
     if cover:
         data["cover"] = cover
+    if icon:
+        data["icon"] = icon
 
     response = requests.post(url, json=data, headers=HEADERS)
     return response.status_code, response.json()
@@ -44,7 +68,11 @@ def add_goal(goal, skills_gained, timeframe, goals_db_id, access_token):
     return create_notion_page(goals_db_id, properties, access_token)
 
 
-def add_phase(phase, image_url, phases_db_id, access_token):
+def add_phase(phase, image_url, phases_db_id, access_token, heart_icon):
+    icon = {
+        "type": "emoji",
+        "emoji": heart_icon  # Pass the heart icon as an emoji, like ❤️, 💛, 💚, 💙, etc.
+    }
     
     properties = {
         "Name": {
@@ -63,7 +91,7 @@ def add_phase(phase, image_url, phases_db_id, access_token):
     }
     
     # Create the phase page with properties
-    return create_notion_page(phases_db_id, properties, access_token, cover)
+    return create_notion_page(phases_db_id, properties, access_token, cover, icon)
 
 
 def add_skill_to_database(skill, skills_db_id, access_token):
@@ -203,12 +231,14 @@ def push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_i
     
     skill_dict = {}
     # 2. Add the phase
-    for phase in data["Phases"]:
+    for i, phase in enumerate(data["Phases"]):
+        heart_icon = heart_icons[i % len(heart_icons)]
         phase_response = add_phase(
             phase=phase["Phase"],
             image_url=phase['phase_img_url'],
             phases_db_id=phases_db_id,
-            access_token=access_token
+            access_token=access_token,
+            heart_icon=heart_icon
         )
         
         phase_id = phase_response[1]['id']  # The ID of the created phase

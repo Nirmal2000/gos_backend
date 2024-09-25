@@ -8,6 +8,7 @@ from utils import lifeos, generate_phase_image
 import threading
 from flask_cors import CORS
 import time
+from datetime import datetime, timezone
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -18,6 +19,18 @@ CORS(app)#, supports_credentials=True)#, origins=["https://localhost:3000"])
 user_processing_status = {}
 status_lock = threading.Lock()
 
+def is_recent(created_time_str):
+    """
+    This function checks if the created_time is within 1 minute of the current time.
+    """
+    created_time = datetime.strptime(created_time_str, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+    current_time = datetime.now(timezone.utc)
+    
+    # Calculate the time difference in seconds
+    time_difference = (current_time - created_time).total_seconds()
+    
+    # Check if the time difference is within 1 minute (60 seconds)
+    return time_difference <= 60
 
 def get_basic_auth_header(client_id, client_secret):
     client_credentials = f"{client_id}:{client_secret}"
@@ -88,7 +101,8 @@ def process_data(access_token, user_text):
     # After return from notion_callback, run search, find db ids and pass text
     
     search_res = search_notion_pages(access_token)['results']
-    while not search_res:
+    print(search_res)
+    while not search_res or not is_recent(search_res[0]['created_time']):
         search_res = search_notion_pages(access_token)['results']
         time.sleep(1)
     goalos_pid = search_res[0]['id']
