@@ -48,7 +48,6 @@ def check_status():
     with status_lock:
         status = user_processing_status.get(access_token, 'not_started')
     
-    print(access_token, status)
     return jsonify({"status": status}), 200
 
 @app.route('/api/reset_status', methods=['POST'])
@@ -101,7 +100,7 @@ def process_data(access_token, user_text):
     # After return from notion_callback, run search, find db ids and pass text
     
     search_res = search_notion_pages(access_token)['results']
-    print(search_res)
+    
     while not search_res or not is_recent(search_res[0]['created_time']):
         search_res = search_notion_pages(access_token)['results']
         time.sleep(1)
