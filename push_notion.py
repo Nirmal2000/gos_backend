@@ -233,6 +233,7 @@ def push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_i
     # 2. Add the phase
     for i, phase in enumerate(data["Phases"]):
         heart_icon = heart_icons[i % len(heart_icons)]
+        print(phase["Phase"])
         phase_response = add_phase(
             phase=phase["Phase"],
             image_url=phase['phase_img_url'],
@@ -245,6 +246,7 @@ def push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_i
 
         # 3. Add the tasks
         for task_data in phase["Tasks"]:
+            print(task_data["Task"])
             task_response = add_task(
                 task=task_data["Task"],
                 time=task_data["Time"],
@@ -260,6 +262,7 @@ def push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_i
             task_id = task_response[1]['id']  # The ID of the created task
             # 4. Add the hidden tasks
             for hidden_task in task_data["HiddenTasks"]:
+                print(hidden_task)                
                 add_hidden_task(
                     hidden_task=hidden_task,
                     main_task_relation=task_id,
@@ -268,6 +271,7 @@ def push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_i
                 )
 
     for sq in data['SideQuests']:
+        print(sq['Task'])
         sq_resp = add_side_task(sq, sidequests_db_id, access_token, skill_dict, skills_db_id)        
         print("_>",sq_resp)
 
