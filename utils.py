@@ -5,10 +5,17 @@ import requests
 from dotenv import load_dotenv
 import json
 import time
+from shared_variables import sse_clients, user_processing_status
 load_dotenv()
 
 
 client = OpenAI()
+
+
+def send_event(access_token, data):    
+    if access_token in sse_clients:
+        user_processing_status[access_token] = data
+        
 
 def lifeos(goal):
     run = client.beta.threads.create_and_run(
@@ -22,13 +29,12 @@ def lifeos(goal):
     threadid = run.thread_id
     runid = run.id
 
-    while not run.status == "completed":
-        print("Waiting for answer...")
+    while not run.status == "completed":        
         run = client.beta.threads.runs.retrieve(
             thread_id=threadid,
             run_id=runid
         )
-        time.sleep(1)
+        time.sleep(2)
 
     messages = client.beta.threads.messages.list(threadid)
     json_msg = json.loads(messages.to_json())    

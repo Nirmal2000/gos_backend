@@ -1,4 +1,6 @@
 import requests
+from shared_variables import user_processing_status, status_lock, sse_clients
+from utils import send_event
 
 heart_icons = [
     "❤️",  # Red heart
@@ -227,10 +229,12 @@ def add_side_task(task, sidequests_db_id, access_token, skill_dict, skills_db_id
     return create_notion_page(sidequests_db_id, properties, access_token)
 
 
-def push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_id, hidden_tasks_db_id, skills_db_id, data):
+def push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_id, hidden_tasks_db_id, skills_db_id, data, act_key):
     
     skill_dict = {}
     # 2. Add the phase
+    increment = 40 // len(data['Phases'])
+    tmpi = 0
     for i, phase in reversed(list(enumerate(data["Phases"]))):
         heart_icon = heart_icons[i % len(heart_icons)]        
         phase_response = add_phase(
@@ -267,6 +271,9 @@ def push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_i
                     access_token=access_token
                 )
 
+        cur_precent = 50 + (tmpi+1)*increment
+        tmpi += 1        
+        send_event(act_key, '{"percent": ' + str(cur_precent) + '}')
     for sq in reversed(data['SideQuests']):        
         sq_resp = add_side_task(sq, sidequests_db_id, access_token, skill_dict, skills_db_id)                
 
