@@ -5,17 +5,20 @@ import requests
 from dotenv import load_dotenv
 import json
 import time
-from shared_variables import sse_clients, user_processing_status, status_lock
+from shared_variables import redis_client
 load_dotenv()
 
 
 client = OpenAI()
 
 
-def send_event(access_token, data):    
-    if access_token in sse_clients:
-        with status_lock:
-            user_processing_status[access_token] = data
+def send_event(access_token, data):
+    to_send = {
+        "percent": data,
+        "actkey": access_token
+    }
+    print("SENDING EVENT")
+    redis_client.set(access_token, json.dumps(to_send))
         
 
 def lifeos(goal):

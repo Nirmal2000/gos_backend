@@ -9,7 +9,8 @@ import threading
 from flask_cors import CORS
 import time
 from datetime import datetime, timezone
-from shared_variables import user_processing_status, status_lock, sse_clients
+import json
+from shared_variables import redis_client
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -22,16 +23,20 @@ CORS(app)#, supports_credentials=True)#, origins=["https://localhost:3000"])
 def stream(access_token):
     def generate():
         while True:
-            if access_token in sse_clients:  # Only if the client is connected                
-                to_send = '{"percent": -1}'
-                yield f"data: {user_processing_status.get(access_token,  to_send)}\n\n"  # Send the user's status
+            current_status = redis_client.get(access_token)
+            if current_status:
+                yield f"data: {current_status}\n\n"
+            else:
+                to_send = {
+                    "percent": -1,
+                    "actkey": access_token
+                }
+                yield f"data: {json.dumps(to_send)}\n\n"  # Send the user's status
             time.sleep(1)  # Adjust frequency as needed
-    
-    response = Response(generate(), mimetype='text/event-stream')
+    gen_data = generate()
+    response = Response(gen_data, mimetype='text/event-stream')    
     response.headers.add('Cache-Control', 'no-cache')
     response.headers.add('Access-Control-Allow-Origin', '*')
-    
-    sse_clients[access_token] = response  # Keep track of the client with their access token    
     return response
 
 def is_recent(created_time_str):
@@ -69,19 +74,19 @@ def process_data_api():
 def background_process_data(access_token, user_text, act_key):
     try:
         print("Background Task: Processing Started")
-        send_event(act_key, '{"percent": 0}')
+        send_event(act_key, 0)
         # Perform heavy processing here        
         result = process_data(access_token, user_text, act_key)
         
         # Update status to "completed" when done
-        send_event(act_key, '{"percent": -1}')
+        send_event(act_key, -1)
         
         print("Background Task: Processing Completed")
     
     except Exception as e:
         print(f"Error during processing: {e}")
         # In case of error, set status to "error"
-        send_event(act_key, '{"percent": "error"}')
+        send_event(act_key, 'error')
 
 def process_data(access_token, user_text, act_key):
     print("STARTED PROCESS")    
@@ -91,33 +96,32 @@ def process_data(access_token, user_text, act_key):
     while not search_res or not is_recent(search_res[0]['created_time']):
         search_res = search_notion_pages(access_token)['results']        
         time.sleep(1)
-    send_event(act_key, '{"percent": 10}')
+    send_event(act_key, 10)
 
     goalos_pid = search_res[0]['id']
     phases_db_id = find_database_ids_recursive(access_token, goalos_pid, "Phases")
-    send_event(act_key, '{"percent": 14}')
+    send_event(act_key, 14)
     tasks_db_id = find_database_ids_recursive(access_token, goalos_pid, "Tasks")
-    send_event(act_key, '{"percent": 18}')
+    send_event(act_key, 18)
     hidden_tasks_db_id = find_database_ids_recursive(access_token, goalos_pid, "Objectives")
-    send_event(act_key, '{"percent": 22}')
+    send_event(act_key, 22)
     sidequests_db_id = find_database_ids_recursive(access_token, goalos_pid, "Side Quests")
-    send_event(act_key, '{"percent": 26}')
+    send_event(act_key, 26)
     skills_db_id = find_database_ids_recursive(access_token, goalos_pid, "Skills")    
-    send_event(act_key, '{"percent": 30}')
+    send_event(act_key, 30)
     
     # Generate JSON data using the lifeos function based on the user input    
     data = lifeos(user_text)
-    send_event(act_key, '{"percent": 40}')
+    send_event(act_key, 40)
     
     # Iterate through the phases and generate images for each phase
     for phase in data["Phases"]:
         phase_img_url = generate_phase_image(phase["Phase"])  # Generate image for the phase        
         phase["phase_img_url"] = phase_img_url['images'][0]['url']  # Store image URL in the JSON data    
-    send_event(act_key, '{"percent": 50}')
+    send_event(act_key, 50)
     
     # Push data to Notion using the access token, database IDs, and the JSON data
-    push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_id, hidden_tasks_db_id, skills_db_id, data, act_key)    
-    send_event(access_token, '{"percent": -1}')
+    push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_id, hidden_tasks_db_id, skills_db_id, data, act_key)
     
     return {"status": "completed"}
 
@@ -137,4 +141,4 @@ def search_notion_pages(access_token):
     return response.json()
 
 if __name__ == '__main__':
-    app.run()
+    app.run(threaded=True, debug=True, port=5001)
