@@ -25,7 +25,7 @@ def stream(access_token):
             if access_token in sse_clients:  # Only if the client is connected                
                 to_send = '{"percent": -1}'
                 yield f"data: {user_processing_status.get(access_token,  to_send)}\n\n"  # Send the user's status
-            time.sleep(5)  # Adjust frequency as needed
+            time.sleep(1)  # Adjust frequency as needed
     
     response = Response(generate(), mimetype='text/event-stream')
     response.headers.add('Cache-Control', 'no-cache')

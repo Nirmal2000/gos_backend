@@ -34,7 +34,7 @@ def lifeos(goal):
             thread_id=threadid,
             run_id=runid
         )
-        time.sleep(2)
+        time.sleep(1)
 
     messages = client.beta.threads.messages.list(threadid)
     json_msg = json.loads(messages.to_json())    
