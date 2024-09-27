@@ -5,7 +5,7 @@ import requests
 from dotenv import load_dotenv
 import json
 import time
-from shared_variables import sse_clients, user_processing_status
+from shared_variables import sse_clients, user_processing_status, status_lock
 load_dotenv()
 
 
@@ -14,7 +14,8 @@ client = OpenAI()
 
 def send_event(access_token, data):    
     if access_token in sse_clients:
-        user_processing_status[access_token] = data
+        with status_lock:
+            user_processing_status[access_token] = data
         
 
 def lifeos(goal):

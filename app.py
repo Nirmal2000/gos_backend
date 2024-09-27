@@ -81,8 +81,7 @@ def background_process_data(access_token, user_text, act_key):
     except Exception as e:
         print(f"Error during processing: {e}")
         # In case of error, set status to "error"
-        with status_lock:
-            user_processing_status[act_key] = 'error'
+        send_event(act_key, '{"percent": "error"}')
 
 def process_data(access_token, user_text, act_key):
     print("STARTED PROCESS")    
@@ -107,7 +106,7 @@ def process_data(access_token, user_text, act_key):
     send_event(act_key, '{"percent": 30}')
     
     # Generate JSON data using the lifeos function based on the user input    
-    data = lifeos(user_text)    
+    data = lifeos(user_text)
     send_event(act_key, '{"percent": 40}')
     
     # Iterate through the phases and generate images for each phase
@@ -138,4 +137,4 @@ def search_notion_pages(access_token):
     return response.json()
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()
