@@ -58,9 +58,7 @@ def process_data_api():
     data = request.json    
     access_token = data.get('access_token')
     user_text = data.get('user_text')
-    act_key = data.get('act_key')        
-
-    send_event(act_key, '{"percent": 0}')
+    act_key = data.get('act_key')
 
     processing_thread = threading.Thread(target=background_process_data, args=(access_token, user_text, act_key))
     processing_thread.start()
@@ -71,6 +69,7 @@ def process_data_api():
 def background_process_data(access_token, user_text, act_key):
     try:
         print("Background Task: Processing Started")
+        send_event(act_key, '{"percent": 0}')
         # Perform heavy processing here        
         result = process_data(access_token, user_text, act_key)
         
