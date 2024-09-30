@@ -65,6 +65,7 @@ def process_data_api():
     user_text = data.get('user_text')
     act_key = data.get('act_key')
     template_id = data.get('template_id')
+    print(template_id, access_token)
 
     processing_thread = threading.Thread(target=background_process_data, args=(access_token, user_text, act_key, template_id))
     processing_thread.start()
@@ -91,8 +92,7 @@ def background_process_data(access_token, user_text, act_key, template_id):
 
 def process_data(access_token, user_text, act_key, template_id):
     print("STARTED PROCESS") 
-    goalos_pid = template_id  
-    print(goalos_pid)     
+    goalos_pid = template_id      
     print("Getting tasks..")
     data = lifeos(user_text)
     send_event(act_key, 10)
