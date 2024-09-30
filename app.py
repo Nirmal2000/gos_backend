@@ -64,64 +64,69 @@ def process_data_api():
     access_token = data.get('access_token')
     user_text = data.get('user_text')
     act_key = data.get('act_key')
+    template_id = data.get('template_id')
 
-    processing_thread = threading.Thread(target=background_process_data, args=(access_token, user_text, act_key))
+    processing_thread = threading.Thread(target=background_process_data, args=(access_token, user_text, act_key, template_id))
     processing_thread.start()
     
     # Return a response to Next.js
     return jsonify({"status": "processing_started"}), 200
 
-def background_process_data(access_token, user_text, act_key):
-    try:
-        print("Background Task: Processing Started")
-        send_event(act_key, 0)
-        # Perform heavy processing here        
-        result = process_data(access_token, user_text, act_key)
-        
-        # Update status to "completed" when done
-        send_event(act_key, -1)
-        
-        print("Background Task: Processing Completed")
+def background_process_data(access_token, user_text, act_key, template_id):
+    # try:
+    print("Background Task: Processing Started")
+    send_event(act_key, 0)
+    # Perform heavy processing here        
+    result = process_data(access_token, user_text, act_key, template_id)
     
-    except Exception as e:
-        print(f"Error during processing: {e}")
-        # In case of error, set status to "error"
-        send_event(act_key, 'error')
+    # Update status to "completed" when done
+    send_event(act_key, -1)
+    
+    print("Background Task: Processing Completed")
+    
+    # except Exception as e:
+    #     print(f"Error during processing: {e}")
+    #     # In case of error, set status to "error"
+    #     send_event(act_key, 'error')
 
-def process_data(access_token, user_text, act_key):
-    print("STARTED PROCESS")    
-    
-    search_res = search_notion_pages(access_token)['results']    
-    
-    while not search_res or not is_recent(search_res[0]['created_time']):
-        search_res = search_notion_pages(access_token)['results']        
-        time.sleep(1)
+def process_data(access_token, user_text, act_key, template_id):
+    print("STARTED PROCESS") 
+    goalos_pid = template_id  
+    print(goalos_pid)     
+    print("Getting tasks..")
+    data = lifeos(user_text)
     send_event(act_key, 10)
-
-    goalos_pid = search_res[0]['id']
+    print("Getting tasks DONE")
+    
+    print("Getting database ids...")
     phases_db_id = find_database_ids_recursive(access_token, goalos_pid, "Phases")
-    send_event(act_key, 14)
+    send_event(act_key, 24)
     tasks_db_id = find_database_ids_recursive(access_token, goalos_pid, "Tasks")
-    send_event(act_key, 18)
+    send_event(act_key, 28)
     hidden_tasks_db_id = find_database_ids_recursive(access_token, goalos_pid, "Objectives")
-    send_event(act_key, 22)
+    send_event(act_key, 32)
     sidequests_db_id = find_database_ids_recursive(access_token, goalos_pid, "Side Quests")
-    send_event(act_key, 26)
+    send_event(act_key, 36)
     skills_db_id = find_database_ids_recursive(access_token, goalos_pid, "Skills")    
-    send_event(act_key, 30)
+    send_event(act_key, 40)
+    print("Getting database ids DONE")
     
     # Generate JSON data using the lifeos function based on the user input    
-    data = lifeos(user_text)
-    send_event(act_key, 40)
+    
+    
     
     # Iterate through the phases and generate images for each phase
+    print("Generating images...")
     for phase in data["Phases"]:
         phase_img_url = generate_phase_image(phase["Phase"])  # Generate image for the phase        
         phase["phase_img_url"] = phase_img_url['images'][0]['url']  # Store image URL in the JSON data    
+    print("Generated images.")
     send_event(act_key, 50)
     
     # Push data to Notion using the access token, database IDs, and the JSON data
+    print("Pushing data to Notion...")
     push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_id, hidden_tasks_db_id, skills_db_id, data, act_key)
+    print("Pushed data!")
     
     return {"status": "completed"}
 
