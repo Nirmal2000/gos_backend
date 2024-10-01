@@ -58,8 +58,7 @@ def background_process_data(access_token, user_text, act_key, template_id):
         print("Background Task: Processing Started")
         redis_client.set(act_key, 'processing')
         # Perform heavy processing here        
-        time.sleep(5)
-        # result = process_data(access_token, user_text, act_key, template_id)
+        result = process_data(access_token, user_text, act_key, template_id)
 
         redis_client.set(act_key, 'not_started')
         
