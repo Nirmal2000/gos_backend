@@ -26,7 +26,7 @@ def check_status():
 
     current_status = redis_client.get(access_token)
     if not current_status:
-        redis_client.set(current_status, 'not_started')
+        redis_client.set(access_token, 'not_started')
         current_status = redis_client.get(access_token)
     
     return jsonify({"status": current_status.decode('utf-8')}), 200
