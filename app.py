@@ -44,6 +44,7 @@ def process_data_api():
     user_text = data.get('user_text')
     act_key = data.get('act_key')
     template_id = data.get('template_id')
+    redis_client.set(act_key, 'processing')
     print(template_id, access_token)
 
     processing_thread = threading.Thread(target=background_process_data, args=(access_token, user_text, act_key, template_id))
@@ -54,13 +55,8 @@ def process_data_api():
 
 def background_process_data(access_token, user_text, act_key, template_id):
     try:
-        print("Background Task: Processing Started")
-        redis_client.set(act_key, 'processing')
-        # Perform heavy processing here        
-        result = process_data(access_token, user_text, act_key, template_id)
-
-        redis_client.set(act_key, 'not_started')
-        
+        print("Background Task: Processing Started")        
+        result = process_data(access_token, user_text, act_key, template_id)        
         print("Background Task: Processing Completed")
     
     except Exception as e:
@@ -94,6 +90,7 @@ def process_data(access_token, user_text, act_key, template_id):
     # Push data to Notion using the access token, database IDs, and the JSON data
     print("Pushing data to Notion...")
     push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_id, hidden_tasks_db_id, skills_db_id, data, act_key)
+    redis_client.set(act_key, 'not_started')
     print("Pushed data!")
     
     return {"status": "completed"}
