@@ -22,15 +22,14 @@ CORS(app, resources={"*": {"origins": "*"}})
 @app.route('/api/check_status', methods=['GET'])
 def check_status():
     auth_header = request.headers.get('Authorization')
-    access_token = auth_header.split(' ')[1]    
+    access_token = auth_header.split(' ')[1]
 
     current_status = redis_client.get(access_token)
     if not current_status:
-        current_status = "not_started"
-    else:
-        current_status = current_status.decode('utf-8')
+        redis_client.set(current_status)
+        current_status = redis_client.get(access_token)
     
-    return jsonify({"status": current_status}), 200
+    return jsonify({"status": current_status.decode('utf-8')}), 200
 
 def get_basic_auth_header(client_id, client_secret):
     client_credentials = f"{client_id}:{client_secret}"
