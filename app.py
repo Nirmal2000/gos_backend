@@ -2,9 +2,8 @@ from flask import Flask, redirect, request, url_for, render_template_string, ses
 import requests
 import os
 import base64
-from utils import find_database_ids_recursive, send_event
 from push_notion import push_data_to_notion
-from utils import lifeos, generate_phase_image
+from utils import lifeos, generate_phase_image, find_database_ids_recursive
 import threading
 from flask_cors import CORS
 import time
@@ -12,45 +11,26 @@ from datetime import datetime, timezone
 import json
 from shared_variables import redis_client
 
+
 # Initialize Flask app
 app = Flask(__name__)
 app.secret_key = 'your-secret-key'
 
-CORS(app)#, supports_credentials=True)#, origins=["https://localhost:3000"])
+CORS(app, resources={"*": {"origins": "*"}}) 
 
 
-@app.route('/stream/<access_token>')
-def stream(access_token):
-    def generate():
-        while True:
-            current_status = redis_client.get(access_token)
-            if current_status:
-                yield f"data: {current_status}\n\n"
-            else:
-                to_send = {
-                    "percent": -1,
-                    "actkey": access_token
-                }
-                yield f"data: {json.dumps(to_send)}\n\n"  # Send the user's status
-            time.sleep(1)  # Adjust frequency as needed
-    gen_data = generate()
-    response = Response(gen_data, mimetype='text/event-stream')    
-    response.headers.add('Cache-Control', 'no-cache')
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    return response
+@app.route('/api/check_status', methods=['GET'])
+def check_status():
+    auth_header = request.headers.get('Authorization')
+    access_token = auth_header.split(' ')[1]    
 
-def is_recent(created_time_str):
-    """
-    This function checks if the created_time is within 1 minute of the current time.
-    """
-    created_time = datetime.strptime(created_time_str, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
-    current_time = datetime.now(timezone.utc)
+    current_status = redis_client.get(access_token)
+    if not current_status:
+        current_status = "not_started"
+    else:
+        current_status = current_status.decode('utf-8')
     
-    # Calculate the time difference in seconds
-    time_difference = (current_time - created_time).total_seconds()
-    
-    # Check if the time difference is within 1 minute (60 seconds)
-    return time_difference <= 120
+    return jsonify({"status": current_status}), 200
 
 def get_basic_auth_header(client_id, client_secret):
     client_credentials = f"{client_id}:{client_secret}"
@@ -74,54 +54,44 @@ def process_data_api():
     return jsonify({"status": "processing_started"}), 200
 
 def background_process_data(access_token, user_text, act_key, template_id):
-    # try:
-    print("Background Task: Processing Started")
-    send_event(act_key, 0)
-    # Perform heavy processing here        
-    result = process_data(access_token, user_text, act_key, template_id)
+    try:
+        print("Background Task: Processing Started")
+        redis_client.set(act_key, 'processing')
+        # Perform heavy processing here        
+        time.sleep(5)
+        # result = process_data(access_token, user_text, act_key, template_id)
+
+        redis_client.set(act_key, 'not_started')
+        
+        print("Background Task: Processing Completed")
     
-    # Update status to "completed" when done
-    send_event(act_key, -1)
-    
-    print("Background Task: Processing Completed")
-    
-    # except Exception as e:
-    #     print(f"Error during processing: {e}")
-    #     # In case of error, set status to "error"
-    #     send_event(act_key, 'error')
+    except Exception as e:
+        redis_client.set(act_key, 'not_started')
+        print(f"Error during processing: {e}")
+
 
 def process_data(access_token, user_text, act_key, template_id):
     print("STARTED PROCESS") 
     goalos_pid = template_id      
     print("Getting tasks..")
     data = lifeos(user_text)
-    send_event(act_key, 10)
+    
     print("Getting tasks DONE")
     
     print("Getting database ids...")
-    phases_db_id = find_database_ids_recursive(access_token, goalos_pid, "Phases")
-    send_event(act_key, 24)
-    tasks_db_id = find_database_ids_recursive(access_token, goalos_pid, "Tasks")
-    send_event(act_key, 28)
-    hidden_tasks_db_id = find_database_ids_recursive(access_token, goalos_pid, "Objectives")
-    send_event(act_key, 32)
-    sidequests_db_id = find_database_ids_recursive(access_token, goalos_pid, "Side Quests")
-    send_event(act_key, 36)
+    phases_db_id = find_database_ids_recursive(access_token, goalos_pid, "Phases")    
+    tasks_db_id = find_database_ids_recursive(access_token, goalos_pid, "Tasks")    
+    hidden_tasks_db_id = find_database_ids_recursive(access_token, goalos_pid, "Objectives")    
+    sidequests_db_id = find_database_ids_recursive(access_token, goalos_pid, "Side Quests")    
     skills_db_id = find_database_ids_recursive(access_token, goalos_pid, "Skills")    
-    send_event(act_key, 40)
     print("Getting database ids DONE")
-    
-    # Generate JSON data using the lifeos function based on the user input    
-    
-    
     
     # Iterate through the phases and generate images for each phase
     print("Generating images...")
     for phase in data["Phases"]:
         phase_img_url = generate_phase_image(phase["Phase"])  # Generate image for the phase        
         phase["phase_img_url"] = phase_img_url['images'][0]['url']  # Store image URL in the JSON data    
-    print("Generated images.")
-    send_event(act_key, 50)
+    print("Generated images.")    
     
     # Push data to Notion using the access token, database IDs, and the JSON data
     print("Pushing data to Notion...")

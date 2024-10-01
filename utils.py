@@ -10,15 +10,6 @@ load_dotenv()
 
 
 client = OpenAI()
-
-
-def send_event(access_token, data):
-    to_send = {
-        "percent": data,
-        "actkey": access_token
-    }
-    print("SENDING EVENT")
-    redis_client.set(access_token, json.dumps(to_send))
         
 
 def lifeos(goal):
