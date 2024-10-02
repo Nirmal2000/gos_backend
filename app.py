@@ -19,17 +19,17 @@ app.secret_key = 'your-secret-key'
 CORS(app, resources={"*": {"origins": "*"}}) 
 
 
-@app.route('/api/check_status', methods=['GET'])
-def check_status():
-    auth_header = request.headers.get('Authorization')
-    access_token = auth_header.split(' ')[1]
+# @app.route('/api/check_status', methods=['GET'])
+# def check_status():
+#     auth_header = request.headers.get('Authorization')
+#     access_token = auth_header.split(' ')[1]
 
-    current_status = redis_client.get(access_token)
-    if not current_status:
-        redis_client.set(access_token, 'not_started')
-        current_status = redis_client.get(access_token)
+#     current_status = redis_client.get(access_token)
+#     if not current_status:
+#         redis_client.set(access_token, 'not_started')
+#         current_status = redis_client.get(access_token)
     
-    return jsonify({"status": current_status.decode('utf-8')}), 200
+#     return jsonify({"status": current_status.decode('utf-8')}), 200
 
 def get_basic_auth_header(client_id, client_secret):
     client_credentials = f"{client_id}:{client_secret}"
@@ -44,7 +44,7 @@ def process_data_api():
     user_text = data.get('user_text')
     act_key = data.get('act_key')
     template_id = data.get('template_id')
-    redis_client.set(act_key, 'processing')
+    # redis_client.set(act_key, 'processing')
     print(template_id, access_token)
 
     processing_thread = threading.Thread(target=background_process_data, args=(access_token, user_text, act_key, template_id))
@@ -60,7 +60,7 @@ def background_process_data(access_token, user_text, act_key, template_id):
         print("Background Task: Processing Completed")
     
     except Exception as e:
-        redis_client.set(act_key, 'not_started')
+        # redis_client.set(act_key, 'not_started')
         print(f"Error during processing: {e}")
 
 
@@ -90,7 +90,7 @@ def process_data(access_token, user_text, act_key, template_id):
     # Push data to Notion using the access token, database IDs, and the JSON data
     print("Pushing data to Notion...")
     push_data_to_notion(access_token, sidequests_db_id, phases_db_id, tasks_db_id, hidden_tasks_db_id, skills_db_id, data, act_key)
-    redis_client.set(act_key, 'not_started')
+    # redis_client.set(act_key, 'not_started')
     print("Pushed data!")
     
     return {"status": "completed"}
