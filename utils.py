@@ -33,7 +33,7 @@ async def lifeos(goal):
             response = await client.post(
                 'https://openrouter.ai/api/v1/chat/completions',
                 headers={
-                    'Authorization': f'Bearer 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',
+                    'Authorization': f'Bearer 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',
                     'Content-Type': 'application/json',
                 },
                 json={
